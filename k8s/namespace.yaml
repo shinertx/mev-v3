@@ -1,0 +1,11 @@
+# ---
+# role: [infra]
+# purpose: Kubernetes namespace
+# dependencies: []
+# mutation_ready: true
+# test_status: [ci_passed]
+# ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mev-v3

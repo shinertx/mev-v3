@@ -1,9 +1,8 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: Strategy guide
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.
+# Strategies

@@ -1,9 +1,11 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: Node.js dependencies
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.
+{
+  "name": "mev-v3",
+  "version": "0.1.0"
+}

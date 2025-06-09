@@ -1,9 +1,9 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: Arbitrage strategy
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.
+class Arbitrage:
+    pass

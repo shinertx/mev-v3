@@ -1,0 +1,10 @@
+# ---
+# role: [infra]
+# purpose: Foundry configuration
+# dependencies: []
+# mutation_ready: true
+# test_status: [ci_passed]
+# ---
+[default]
+src = 'contracts'
+out = 'out'

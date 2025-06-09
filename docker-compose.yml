@@ -1,0 +1,11 @@
+# ---
+# role: [infra]
+# purpose: Local development stack
+# dependencies: []
+# mutation_ready: true
+# test_status: [ci_passed]
+# ---
+version: '3'
+services:
+  app:
+    build: .

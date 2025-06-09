@@ -1,9 +1,10 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: Hardhat configuration
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.
+module.exports = {
+  solidity: "0.8.19"
+};

@@ -1,9 +1,7 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: Strategies package init
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.

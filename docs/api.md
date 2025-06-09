@@ -1,9 +1,8 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: API documentation
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.
+# API Docs

@@ -1,9 +1,10 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: Default configuration
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.
+{
+  "setting": "value"
+}

@@ -1,9 +1,10 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: Smart contract placeholder
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.
+pragma solidity ^0.8.19;
+
+contract MEVExecutor {}

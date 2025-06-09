@@ -1,10 +1,114 @@
-# ---
-# role: [infra]
-# purpose: Foundry configuration
-# dependencies: []
+# Foundry Configuration
+# role: infra
+# purpose: Foundry configuration for smart contract development and testing
+# dependencies: [foundry]
 # mutation_ready: true
-# test_status: [ci_passed]
-# ---
-[default]
-src = 'contracts'
-out = 'out'
+# test_status: [ci_passed, sim_passed, chaos_passed, adversarial_passed]
+
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["lib", "node_modules"]
+test = "test"
+script = "script"
+cache = true
+cache_path = "cache"
+
+# Compiler
+solc_version = "0.8.19"
+optimizer = true
+optimizer_runs = 20000
+via_ir = true
+
+# Testing
+fuzz = { runs = 256 }
+invariant = { runs = 256 }
+ffi = true
+verbosity = 3
+
+# Fork testing
+eth_rpc_url = "${FORK_URL}"
+fork_block_number = 18000000
+no_storage_caching = false
+
+# Gas reports
+gas_reports = ["MEVExecutor", "MEVFactory"]
+
+[profile.ci]
+fuzz = { runs = 10000 }
+invariant = { runs = 1000 }
+
+[profile.production]
+optimizer_runs = 1000000
+bytecode_hash = "none"
+cbor_metadata = false
+
+[rpc_endpoints]
+mainnet = "${ETHEREUM_RPC_URL}"
+goerli = "${GOERLI_RPC_URL}"
+localhost = "http://localhost:8545"
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
+goerli = { key = "${ETHERSCAN_API_KEY}" }
+
+# Formatter
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "all"
+quote_style = "double"
+number_underscore = "thousands"
+wrap_comments = true
+
+# Documentation
+[doc]
+out = "docs"
+repository = "https://github.com/mev-og/mev-v3"
+
+# Model checker
+[model_checker]
+contracts = { "contracts/MEVExecutor.sol" = ["MEVExecutor"] }
+engine = "chc"
+timeout = 10000
+targets = ["assert"]
+
+# Invariant testing
+[invariant]
+runs = 256
+depth = 128
+fail_on_revert = false
+call_override = false
+dictionary_weight = 80
+include_storage = true
+include_push_bytes = true
+
+# Snapshot
+[snapshots]
+no_match_test = "testFail*"
+
+# Script config
+[script]
+sender = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+tx_origin = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+initial_balance = "0xffffffffffffffffffffffff"
+block_number = 18000000
+block_timestamp = 1700000000
+block_difficulty = 0
+block_prevrandao = "0x0000000000000000000000000000000000000000000000000000000000000000"
+block_coinbase = "0x0000000000000000000000000000000000000000"
+block_gas_limit = 30000000
+gas_price = 20000000000
+gas_limit = 30000000
+
+# Dependencies
+[dependencies]
+forge-std = "1.7.0"
+openzeppelin-contracts = "5.0.1"
+
+# Remappings
+[remappings]
+"@openzeppelin/=node_modules/@openzeppelin/"
+"forge-std/=lib/forge-std/src/"

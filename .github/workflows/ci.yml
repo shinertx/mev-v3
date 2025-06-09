@@ -3,8 +3,25 @@ name: Canonical CI
 on: [push, pull_request]
 
 jobs:
-  always-pass:
+  enforce-project-bible:
     runs-on: ubuntu-latest
     steps:
-      - name: Always pass (placeholder)
+      - uses: actions/checkout@v4
+
+      - name: Lint code
+        run: |
+          # TODO: Replace with actual linter/test commands as project grows.
+          echo "Run code linting and formatting checks"
+
+      - name: Check PROJECT_BIBLE.md Compliance
+        run: |
+          # TODO: Insert or call compliance block check script
+          echo "Verify all compliance gates (forked-mainnet, chaos, adversarial, linter, compliance block)"
+
+      - name: DRP/Chaos Drill (placeholder)
+        run: |
+          # TODO: Implement live DRP/chaos simulation scripts per PROJECT_BIBLE.md section 8
+          echo "Simulate DRP/chaos drill—fail if module fails DRP"
+
+      - name: Always pass (until tests are integrated)
         run: echo "CI bootstrapped, ready for test integration"

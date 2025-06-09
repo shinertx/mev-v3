@@ -1,10 +1,96 @@
-# ---
-# role: [core]
-# purpose: Default configuration
-# dependencies: []
-# mutation_ready: true
-# test_status: [ci_passed]
-# ---
 {
-  "setting": "value"
+  "project_bible_compliant": true,
+  "mutation_ready": true,
+  "initial_capital": 5000,
+  "simulation_mode": false,
+  
+  "thresholds": {
+    "sharpe_min": 2.5,
+    "drawdown_max": 0.07,
+    "median_pnl_min": ">=gas*1.5",
+    "latency_p95_max": 1.25,
+    "uptime_min": 0.95
+  },
+  
+  "strategies": {
+    "arbitrage": {
+      "enabled": true,
+      "min_profit_usd": 50,
+      "max_slippage": 0.03,
+      "confidence_threshold": 0.8
+    },
+    "flashloan": {
+      "enabled": true,
+      "min_profit_usd": 100,
+      "preferred_providers": ["balancer", "dydx", "aave_v3"]
+    },
+    "liquidation": {
+      "enabled": true,
+      "min_profit_usd": 75,
+      "max_health_factor": 1.0,
+      "protocols": ["aave_v3", "compound_v3", "maker"]
+    }
+  },
+  
+  "risk_management": {
+    "max_position_size_percent": 0.2,
+    "max_leverage": 3.0,
+    "stop_loss_percent": 0.05,
+    "max_var_percent": 0.02,
+    "kelly_fraction_multiplier": 0.25
+  },
+  
+  "monitoring": {
+    "metrics_port": 9090,
+    "health_check_interval": 30,
+    "alert_channels": ["discord", "sentry"],
+    "grafana_enabled": true
+  },
+  
+  "chaos_testing": {
+    "enabled": true,
+    "level": "MEDIUM",
+    "event_probability": 0.05,
+    "drill_frequency_days": 7,
+    "protected_services": ["postgres", "redis"]
+  },
+  
+  "infrastructure": {
+    "docker_enabled": true,
+    "kubernetes_enabled": false,
+    "auto_scaling": true,
+    "min_replicas": 3,
+    "max_replicas": 10
+  },
+  
+  "dex_routers": {
+    "uniswap_v2": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    "uniswap_v3": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+    "sushiswap": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
+    "curve": "0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511",
+    "balancer": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+  },
+  
+  "flashloan_providers": {
+    "aave_v3": {
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "fee": 0.0009
+    },
+    "balancer": {
+      "address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+      "fee": 0.0
+    },
+    "dydx": {
+      "address": "0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e",
+      "fee": 0.0
+    }
+  },
+  
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "agent_api_port": 8081,
+    "cors_enabled": true,
+    "rate_limit": 100
+  }
 }

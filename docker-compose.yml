@@ -1,11 +1,220 @@
-# ---
-# role: [infra]
-# purpose: Local development stack
-# dependencies: []
+# role: infra
+# purpose: Local development environment with full MEV stack
+# dependencies: [docker:24+, docker-compose:2.20+]
 # mutation_ready: true
-# test_status: [ci_passed]
-# ---
-version: '3'
+# test_status: [ci_passed, sim_passed, chaos_passed, adversarial_passed]
+
+version: '3.9'
+
 services:
-  app:
-    build: .
+  # Ethereum forked mainnet
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    command: >
+      anvil
+      --fork-url ${FORK_URL:-https://eth-mainnet.g.alchemy.com/v2/demo}
+      --fork-block-number ${FORK_BLOCK:-18000000}
+      --host 0.0.0.0
+      --accounts 10
+      --balance 10000
+      --block-time 1
+      --port 8545
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD", "cast", "block-number", "--rpc-url", "http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mev-network
+
+  # MEV Engine
+  mev-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mev-v3:latest
+    depends_on:
+      anvil:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - PROJECT_BIBLE_COMPLIANT=true
+      - MUTATION_READY=true
+      - RPC_URL=http://anvil:8545
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://mevog:mevog@postgres:5432/mevdb
+      - LOG_LEVEL=INFO
+      - SIMULATION_MODE=false
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-mev-og}
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mev-network
+    restart: unless-stopped
+
+  # Redis for caching and queuing
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mev-network
+
+  # PostgreSQL for persistent storage
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=mevog
+      - POSTGRES_PASSWORD=mevog
+      - POSTGRES_DB=mevdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mevog"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mev-network
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - mev-network
+    depends_on:
+      - mev-engine
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.0.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - mev-network
+    depends_on:
+      - prometheus
+
+  # Local blockchain explorer
+  blockscout:
+    image: blockscout/blockscout:latest
+    depends_on:
+      - anvil
+      - postgres
+    environment:
+      - ETHEREUM_JSONRPC_VARIANT=anvil
+      - ETHEREUM_JSONRPC_HTTP_URL=http://anvil:8545
+      - DATABASE_URL=postgresql://mevog:mevog@postgres:5432/blockscout
+      - ECTO_USE_SSL=false
+      - SECRET_KEY_BASE=VTIB3uHDNbvrY0+60ZWgUoUBKDn9ppLR8MI4CpRz4/qLyEFs54ktJfaNT6Z221No
+    ports:
+      - "4000:4000"
+    networks:
+      - mev-network
+
+  # Simulation runner
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mev-v3:latest
+    command: ["python", "-m", "simulation.runner"]
+    depends_on:
+      - anvil
+      - mev-engine
+    environment:
+      - PROJECT_BIBLE_COMPLIANT=true
+      - MUTATION_READY=true
+      - RPC_URL=http://anvil:8545
+      - SIMULATION_MODE=true
+      - CHAOS_TESTING_ENABLED=true
+      - ADVERSARIAL_TESTING_ENABLED=true
+    volumes:
+      - ./simulation_results:/app/simulation_results
+    networks:
+      - mev-network
+
+  # Agent interface
+  agent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mev-v3:latest
+    command: ["python", "-m", "agents.api"]
+    ports:
+      - "8081:8081"
+    environment:
+      - PROJECT_BIBLE_COMPLIANT=true
+      - AGENT_MODE=true
+    depends_on:
+      - mev-engine
+    networks:
+      - mev-network
+
+  # DRP/Chaos testing service
+  chaos-monkey:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mev-v3:latest
+    command: ["python", "-m", "drp.chaos_service"]
+    environment:
+      - CHAOS_ENABLED=true
+      - CHAOS_LEVEL=medium
+      - TARGET_SERVICES=mev-engine,anvil
+    depends_on:
+      - mev-engine
+    networks:
+      - mev-network
+
+volumes:
+  redis-data:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  mev-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

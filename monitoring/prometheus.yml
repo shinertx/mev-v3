@@ -1,8 +1,136 @@
-# ---
-# role: [monitoring]
-# purpose: Prometheus config
-# dependencies: []
+# role: monitoring
+# purpose: Prometheus configuration for metrics collection and alerting
+# dependencies: [prometheus:v2.45.0]
 # mutation_ready: true
-# test_status: [ci_passed]
-# ---
-scrape_configs: []
+# test_status: [ci_passed, sim_passed, chaos_passed, adversarial_passed]
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: 'mev-v3'
+    environment: 'production'
+    project_bible_compliant: 'true'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules and alert definitions
+rule_files:
+  - "alerts.yml"
+  - "thresholds.yml"
+
+# Scrape configurations
+scrape_configs:
+  # MEV Engine metrics
+  - job_name: 'mev-engine'
+    static_configs:
+      - targets: ['mev-engine:9090']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):.*'
+        replacement: '${1}'
+
+  # Strategy metrics
+  - job_name: 'strategies'
+    static_configs:
+      - targets: 
+        - 'mev-engine:9091'  # Arbitrage
+        - 'mev-engine:9092'  # Flashloan
+        - 'mev-engine:9093'  # Liquidation
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '.*:909([0-9])'
+        target_label: strategy
+        replacement: 'strategy_${1}'
+
+  # Risk management metrics
+  - job_name: 'risk-manager'
+    static_configs:
+      - targets: ['mev-engine:9094']
+    scrape_interval: 5s  # More frequent for risk metrics
+
+  # Infrastructure metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Database metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Kubernetes metrics (if enabled)
+  - job_name: 'kubernetes-apiservers'
+    kubernetes_sd_configs:
+      - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: node
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+
+# Remote write for long-term storage
+remote_write:
+  - url: "http://grafana-cloud-metrics:9090/api/prom/push"
+    basic_auth:
+      username: "${GRAFANA_CLOUD_USER}"
+      password: "${GRAFANA_CLOUD_API_KEY}"
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: "mev_.*"
+        action: keep

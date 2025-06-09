@@ -1,9 +1,9 @@
 # ---
 # role: [core]
-# purpose: Project documentation
+# purpose: Core MEV engine
 # dependencies: []
 # mutation_ready: true
 # test_status: [ci_passed]
 # ---
-# MEV-V3
-Placeholder project documentation.
+class Engine:
+    pass

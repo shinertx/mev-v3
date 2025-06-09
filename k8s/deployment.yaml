@@ -1,0 +1,13 @@
+# ---
+# role: [infra]
+# purpose: K8s deployment manifests
+# dependencies: []
+# mutation_ready: true
+# test_status: [ci_passed]
+# ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mev-v3
+spec:
+  replicas: 1

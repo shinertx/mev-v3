@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ---
+# role: [infra]
+# purpose: Local CI runner
+# dependencies: []
+# mutation_ready: true
+# test_status: [ci_passed]
+# ---
 set -euo pipefail
 
 echo "=== MEV-OG / MEV-V3 LOCAL CI SUITE ==="

@@ -1,3 +1,10 @@
+# ---
+# role: [infra]
+# purpose: GitHub Actions CI workflow
+# dependencies: []
+# mutation_ready: true
+# test_status: [ci_passed]
+# ---
 name: Canonical CI
 
 on: [push, pull_request]

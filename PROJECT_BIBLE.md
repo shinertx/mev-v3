@@ -151,6 +151,27 @@ test_status: [ci_passed, sim_passed, chaos_passed, adversarial_passed]
   * If context/computation is exceeded: `ESCALATION REQUIRED – COMPLEXITY BREACH`
   * All non-compliant changes are auto-blocked, logged, and require full audit/override protocol.
 
+## Canonical Directory and File Structure Policy
+
+All codebases governed by PROJECT_BIBLE.md must include at minimum:
+
+- Root: PROJECT_BIBLE.md, AGENTS.md, bootstrap.sh, ci_local.sh, requirements.txt, README.md
+- /engine: Core engine modules
+- /strategies: All strategy modules (arbitrage, flashloan, liquidation, etc.)
+- /risk: Risk management, circuit breakers
+- /simulation: Forked mainnet and backtest simulation modules
+- /contracts: All core and test Solidity contracts, interfaces
+- /agents: Agentic and compliance interface code
+- /drp: Disaster recovery, chaos, recovery, and scenario logs
+- /api: REST/gRPC/agent APIs
+- /.github/workflows: Canonical CI, chaos, security, deploy workflows
+- /tests: All unit, integration, adversarial, and chaos tests
+- /monitoring, /database, /scripts, /k8s, /terraform, /docs, /notebooks as project matures
+
+All modules must be mutation-ready, testable in isolation, and agent-enforceable per section 7.
+See /docs/architecture.md for current, full file tree and module mapping.
+
+
 ---
 
 **PROJECT\_BIBLE.md is the non-negotiable operating system of MEV-OG.**

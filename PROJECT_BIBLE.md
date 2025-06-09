@@ -141,9 +141,33 @@ test_status: [ci_passed, sim_passed, chaos_passed, adversarial_passed]
 > **AGENTS.md / CLAUDE.md / etc. snippet:**
 > “NOTE: This agent must enforce and defer to PROJECT\_BIBLE.md for all tasks. In any conflict, PROJECT\_BIBLE.md prevails. No agent or human action may bypass these rules.”
 
+## 13. Canonical Edge Strategies Policy
+
+All MEV-OG/MEV-V3 modules may implement, mutate, and compose the following edge strategies **if and only if** they remain simulation-first, mutation-ready, agent-auditable, and strictly legal:
+
+- **Information Asymmetry:** Monitor public governance, developer commits, and protocol forums for actionable alpha.
+- **Latency Arbitrage / Precompute:** Pre-calculate all execution paths and decisions for microsecond trade execution.
+- **Metamorphosis/Market Regime Adaptation:** Dynamically mutate strategies and risk controls based on current market regime, fully agentic and simulation-verified.
+- **Adversarial Counter-Trading:** Identify and safely exploit competitor bots using legal adversarial tactics (front-run, sandwich, bait)—*all such actions must be logged and auditable*.
+- **Weaponized Chaos (Self-Only):** Use planned or simulated downtime, fake failures, and chaos scenarios on your own infra for deception and DRP training. Never disrupt or spam external networks.
+- **Meta-Strategy Layer:** AI/agent-driven evolution of new strategies using genetic algorithms, self-mutation, and systematic variant testing—only deploy to live if forked/sim profitable.
+- **Protocol Launch Alpha:** Monitor and act on new protocol launches and time-based protocol events (gauge votes, parameter flips) for first-mover advantage.
+- **Cross-Protocol Dominoes:** Model and position for cascading liquidations or cross-protocol edge.
+- **Swarm/Distributed Agent Tactics:** Coordinate multiple sub-agents for parallel and distributed execution, in compliance with all protocol ToS and anti-sybil rules.
+- **Nuclear Options (Governance/Liquidity Only):** Propose or support governance or liquidity moves that create alpha, provided all actions are legal, auditable, and disclosed. **Social engineering or manipulative “token pump” tactics are strictly prohibited.**
+
+**Any new or mutated strategy must:**
+- Pass forked-mainnet simulation, chaos/adversarial testing, and full compliance audit.
+- Emit logs and audit data for all mutation, adversarial, and chaos actions.
+- Never violate law, regulation, or protocol ToS.
+
+*If any strategy fails compliance or audit, emit: BLOCKED – CONSTRAINT VERIFICATION FAILED.*
+
+
+
 ---
 
-## 13. **FINAL ENFORCEMENT**
+## 14. **FINAL ENFORCEMENT**
 
 * **If any module, agent, or contributor produces output or code in violation of PROJECT\_BIBLE.md:**
 

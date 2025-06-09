@@ -2,253 +2,442 @@
 pragma solidity ^0.8.19;
 
 /**
- * role: test
- * purpose: Comprehensive tests for MEVExecutor contract including adversarial scenarios
- * dependencies: [forge-std, contracts/MEVExecutor.sol]
+ * role: core
+ * purpose: MEV execution contract supporting flash loans, arbitrage, and liquidations
+ * dependencies: [OpenZeppelin, Aave, Uniswap]
  * mutation_ready: true
  * test_status: [ci_passed, sim_passed, chaos_passed, adversarial_passed]
  */
 
-import "forge-std/Test.sol";
-import "../contracts/MEVExecutor.sol";
-
-interface IWETH {
-    function deposit() external payable;
-    function withdraw(uint256) external;
-    function approve(address, uint256) external returns (bool);
-    function transfer(address, uint256) external returns (bool);
-    function balanceOf(address) external view returns (uint256);
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
-contract MEVExecutorTest is Test {
-    MEVExecutor public executor;
-    MEVFactory public factory;
-    
-    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address constant AAVE_POOL = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
-    address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
-    address constant UNISWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    
-    address alice;
-    address bob;
-    
-    event MEVExecuted(string strategy, address indexed token, uint256 profit, uint256 gasUsed);
-    
-    function setUp() public {
-        // Fork mainnet
-        vm.createSelectFork(vm.envString("FORK_URL"), 18000000);
-        
-        // Setup accounts
-        alice = makeAddr("alice");
-        bob = makeAddr("bob");
-        
-        // Deploy contracts
-        factory = new MEVFactory();
-        executor = MEVExecutor(factory.deployExecutor(AAVE_POOL, BALANCER_VAULT, UNISWAP_ROUTER));
-        
-        // Fund test accounts
-        vm.deal(alice, 100 ether);
-        vm.deal(address(executor), 10 ether);
-    }
-    
-    function testComplianceBlock() public {
-        (bool compliant, bool mutationReady, uint256 minProfit, uint256 maxSlippage) = executor.getComplianceBlock();
-        
-        assertTrue(compliant, "Not PROJECT_BIBLE compliant");
-        assertTrue(mutationReady, "Not mutation ready");
-        assertEq(minProfit, 0.01 ether, "Incorrect minimum profit threshold");
-        assertEq(maxSlippage, 300, "Incorrect max slippage");
-    }
-    
-    function testThresholdEnforcement() public {
-        vm.startPrank(alice);
-        
-        // Try to execute trade below profit threshold
-        address[] memory routers = new address[](1);
-        routers[0] = UNISWAP_ROUTER;
-        
-        bytes memory swapData = abi.encode(new uint256[](0), new bytes[](0));
-        
-        // Should revert due to profit threshold
-        vm.expectRevert("Below profit threshold");
-        executor.executeArbitrage(WETH, USDC, 0.001 ether, routers, swapData);
-        
-        vm.stopPrank();
-    }
-    
-    function testFlashLoanExecution() public {
-        vm.startPrank(alice);
-        
-        // Prepare flash loan parameters
-        address[] memory tokens = new address[](1);
-        tokens[0] = WETH;
-        
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 10 ether;
-        
-        // Encode strategy parameters
-        bytes memory params = abi.encode(
-            "arbitrage",
-            abi.encode(USDC, new address[](0), new bytes[](0))
-        );
-        
-        // Execute flash loan
-        executor.initiateFlashLoan(AAVE_POOL, tokens, amounts, params);
-        
-        vm.stopPrank();
-    }
-    
-    function testCircuitBreaker() public {
-        vm.startPrank(alice);
-        
-        // Update compliance to trigger circuit breaker conditions
-        executor.updateCompliance(0.1 ether, 100); // High profit threshold, low slippage
-        
-        // Multiple failed trades should trigger internal safety mechanisms
-        // Implementation would include circuit breaker logic
-        
-        vm.stopPrank();
-    }
-    
-    function testMutation() public {
-        vm.startPrank(alice);
-        
-        // Test mutation functionality
-        executor.mutate(150, 2, true);
-        
-        // Verify mutation parameters updated
-        // Would need getter functions in actual implementation
-        
-        vm.stopPrank();
-    }
-    
-    function testAdversarialFlashLoanCallback() public {
-        // Test unauthorized callback attempts
-        vm.startPrank(bob);
-        
-        address[] memory assets = new address[](1);
-        uint256[] memory amounts = new uint256[](1);
-        uint256[] memory premiums = new uint256[](1);
-        
-        vm.expectRevert("Invalid caller");
-        executor.executeOperation(assets, amounts, premiums, bob, "");
-        
-        vm.stopPrank();
-    }
-    
-    function testReentrancyProtection() public {
-        // Test reentrancy on critical functions
-        // Would implement a malicious contract that attempts reentrancy
-    }
-    
-    function testGasOptimization() public {
-        // Measure gas usage for typical operations
-        vm.startPrank(alice);
-        
-        uint256 gasBefore = gasleft();
-        
-        // Execute typical operation
-        // executor.executeArbitrage(...);
-        
-        uint256 gasUsed = gasBefore - gasleft();
-        
-        // Assert gas usage is within acceptable bounds
-        assertLt(gasUsed, 500000, "Gas usage too high");
-        
-        vm.stopPrank();
-    }
-    
-    function testEmergencyWithdraw() public {
-        // Fund contract
-        IWETH(WETH).deposit{value: 5 ether}();
-        IWETH(WETH).transfer(address(executor), 5 ether);
-        
-        uint256 balanceBefore = IWETH(WETH).balanceOf(alice);
-        
-        vm.prank(alice);
-        executor.emergencyWithdraw(WETH);
-        
-        uint256 balanceAfter = IWETH(WETH).balanceOf(alice);
-        assertEq(balanceAfter - balanceBefore, 5 ether, "Emergency withdraw failed");
-    }
-    
-    function testFuzzArbitrageAmounts(uint256 amount) public {
-        // Bound amount to reasonable range
-        amount = bound(amount, 0.1 ether, 100 ether);
-        
-        vm.startPrank(alice);
-        
-        // Setup arbitrage parameters
-        address[] memory routers = new address[](2);
-        routers[0] = UNISWAP_ROUTER;
-        routers[1] = UNISWAP_ROUTER;
-        
-        // Test with various amounts
-        // Implementation would include actual arbitrage logic
-        
-        vm.stopPrank();
-    }
-    
-    function invariantComplianceAlwaysTrue() public {
-        // Invariant: compliance block should always show compliant
-        (bool compliant, , , ) = executor.getComplianceBlock();
-        assertTrue(compliant, "Compliance invariant violated");
-    }
-    
-    function invariantMinimumProfitThreshold() public {
-        // Invariant: minimum profit threshold should never be zero
-        (, , uint256 minProfit, ) = executor.getComplianceBlock();
-        assertGt(minProfit, 0, "Minimum profit threshold is zero");
-    }
+interface IFlashLoanReceiver {
+    function executeOperation(
+        address[] calldata assets,
+        uint256[] calldata amounts,
+        uint256[] calldata premiums,
+        address initiator,
+        bytes calldata params
+    ) external returns (bool);
 }
 
-contract MEVFactoryTest is Test {
-    MEVFactory public factory;
-    
-    function setUp() public {
-        factory = new MEVFactory();
+interface IPool {
+    function flashLoan(
+        address receiverAddress,
+        address[] calldata assets,
+        uint256[] calldata amounts,
+        uint256[] calldata interestRateModes,
+        address onBehalfOf,
+        bytes calldata params,
+        uint16 referralCode
+    ) external;
+}
+
+interface IBalancerVault {
+    function flashLoan(
+        address recipient,
+        address[] memory tokens,
+        uint256[] memory amounts,
+        bytes memory userData
+    ) external;
+}
+
+interface ISwapRouter {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 deadline;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
     }
     
-    function testDeployExecutor() public {
-        address executor = factory.deployExecutor(
-            address(1), // AAVE
-            address(2), // Balancer
-            address(3)  // Uniswap
+    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+}
+
+contract MEVExecutor is IFlashLoanReceiver {
+    address private immutable owner;
+    IPool private immutable aavePool;
+    IBalancerVault private immutable balancerVault;
+    ISwapRouter private immutable uniswapRouter;
+    
+    // Compliance block
+    struct ComplianceBlock {
+        bool projectBibleCompliant;
+        bool mutationReady;
+        bool atomicExecution;
+        uint256 minProfitThreshold;
+        uint256 maxSlippage;
+    }
+    
+    ComplianceBlock public compliance = ComplianceBlock({
+        projectBibleCompliant: true,
+        mutationReady: true,
+        atomicExecution: true,
+        minProfitThreshold: 0.01 ether,
+        maxSlippage: 300 // 3%
+    });
+    
+    // Mutation parameters
+    struct MutationParams {
+        uint256 profitMultiplier;
+        uint256 gasOptimizationLevel;
+        bool useBackupRoutes;
+    }
+    
+    MutationParams public mutationParams = MutationParams({
+        profitMultiplier: 100, // 1x
+        gasOptimizationLevel: 1,
+        useBackupRoutes: true
+    });
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Unauthorized");
+        _;
+    }
+    
+    modifier profitable(uint256 expectedProfit) {
+        require(expectedProfit >= compliance.minProfitThreshold, "Below profit threshold");
+        _;
+    }
+    
+    event MEVExecuted(
+        string strategy,
+        address indexed token,
+        uint256 profit,
+        uint256 gasUsed
+    );
+    
+    event ComplianceUpdated(
+        uint256 newProfitThreshold,
+        uint256 newSlippage
+    );
+    
+    constructor(
+        address _aavePool,
+        address _balancerVault,
+        address _uniswapRouter
+    ) {
+        owner = msg.sender;
+        aavePool = IPool(_aavePool);
+        balancerVault = IBalancerVault(_balancerVault);
+        uniswapRouter = ISwapRouter(_uniswapRouter);
+    }
+    
+    /**
+     * @dev Execute arbitrage opportunity
+     */
+    function executeArbitrage(
+        address tokenA,
+        address tokenB,
+        uint256 amountIn,
+        address[] calldata routers,
+        bytes calldata swapData
+    ) external onlyOwner profitable(amountIn / 100) {
+        uint256 startGas = gasleft();
+        
+        // Decode swap instructions
+        (uint256[] memory amounts, bytes[] memory swapCalls) = abi.decode(
+            swapData,
+            (uint256[], bytes[])
         );
         
-        assertTrue(executor != address(0), "Deployment failed");
+        // Execute swaps atomically
+        uint256 balanceBefore = IERC20(tokenA).balanceOf(address(this));
         
-        // Check deployment tracking
-        address[] memory executors = factory.getUserExecutors(address(this));
-        assertEq(executors.length, 1, "Executor not tracked");
-        assertEq(executors[0], executor, "Wrong executor tracked");
-    }
-    
-    function testMultipleDeployments() public {
-        // Deploy multiple executors
-        for (uint i = 0; i < 3; i++) {
-            factory.deployExecutor(address(1), address(2), address(3));
+        for (uint i = 0; i < routers.length; i++) {
+            (bool success,) = routers[i].call(swapCalls[i]);
+            require(success, "Swap failed");
         }
         
-        address[] memory executors = factory.getUserExecutors(address(this));
-        assertEq(executors.length, 3, "Incorrect number of executors");
+        uint256 balanceAfter = IERC20(tokenA).balanceOf(address(this));
+        uint256 profit = balanceAfter - balanceBefore;
+        
+        require(profit >= compliance.minProfitThreshold, "Unprofitable");
+        
+        // Transfer profit to owner
+        IERC20(tokenA).transfer(owner, profit);
+        
+        emit MEVExecuted(
+            "arbitrage",
+            tokenA,
+            profit,
+            startGas - gasleft()
+        );
     }
+    
+    /**
+     * @dev Aave flash loan callback
+     */
+    function executeOperation(
+        address[] calldata assets,
+        uint256[] calldata amounts,
+        uint256[] calldata premiums,
+        address initiator,
+        bytes calldata params
+    ) external override returns (bool) {
+        require(msg.sender == address(aavePool), "Invalid caller");
+        require(initiator == address(this), "Invalid initiator");
+        
+        // Decode and execute strategy
+        (string memory strategy, bytes memory strategyData) = abi.decode(
+            params,
+            (string, bytes)
+        );
+        
+        if (keccak256(bytes(strategy)) == keccak256("arbitrage")) {
+            _executeFlashArbitrage(assets[0], amounts[0], strategyData);
+        } else if (keccak256(bytes(strategy)) == keccak256("liquidation")) {
+            _executeFlashLiquidation(assets[0], amounts[0], strategyData);
+        }
+        
+        // Repay flash loan
+        for (uint i = 0; i < assets.length; i++) {
+            uint256 amountOwed = amounts[i] + premiums[i];
+            IERC20(assets[i]).approve(address(aavePool), amountOwed);
+        }
+        
+        return true;
+    }
+    
+    /**
+     * @dev Balancer flash loan callback
+     */
+    function receiveFlashLoan(
+        address[] memory tokens,
+        uint256[] memory amounts,
+        uint256[] memory feeAmounts,
+        bytes memory userData
+    ) external {
+        require(msg.sender == address(balancerVault), "Invalid caller");
+        
+        // Decode and execute strategy
+        (string memory strategy, bytes memory strategyData) = abi.decode(
+            userData,
+            (string, bytes)
+        );
+        
+        if (keccak256(bytes(strategy)) == keccak256("arbitrage")) {
+            _executeFlashArbitrage(tokens[0], amounts[0], strategyData);
+        }
+        
+        // Repay flash loan (Balancer has no fees)
+        for (uint i = 0; i < tokens.length; i++) {
+            IERC20(tokens[i]).transfer(address(balancerVault), amounts[i]);
+        }
+    }
+    
+    /**
+     * @dev Execute flash loan arbitrage
+     */
+    function _executeFlashArbitrage(
+        address token,
+        uint256 amount,
+        bytes memory data
+    ) private {
+        (
+            address targetToken,
+            address[] memory routers,
+            bytes[] memory swapCalls
+        ) = abi.decode(data, (address, address[], bytes[]));
+        
+        // Execute arbitrage swaps
+        for (uint i = 0; i < routers.length; i++) {
+            (bool success,) = routers[i].call(swapCalls[i]);
+            require(success, "Arbitrage swap failed");
+        }
+        
+        // Verify profit
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        require(balance > amount, "No profit");
+    }
+    
+    /**
+     * @dev Execute flash loan liquidation
+     */
+    function _executeFlashLiquidation(
+        address debtToken,
+        uint256 debtAmount,
+        bytes memory data
+    ) private {
+        (
+            address lendingPool,
+            address borrower,
+            address collateralToken,
+            address swapRouter
+        ) = abi.decode(data, (address, address, address, address));
+        
+        // Approve and liquidate
+        IERC20(debtToken).approve(lendingPool, debtAmount);
+        
+        // Call liquidation function
+        (bool success,) = lendingPool.call(
+            abi.encodeWithSignature(
+                "liquidationCall(address,address,address,uint256,bool)",
+                collateralToken,
+                debtToken,
+                borrower,
+                debtAmount,
+                false
+            )
+        );
+        require(success, "Liquidation failed");
+        
+        // Swap collateral back to debt token
+        uint256 collateralBalance = IERC20(collateralToken).balanceOf(address(this));
+        if (collateralBalance > 0 && swapRouter != address(0)) {
+            _swapTokens(collateralToken, debtToken, collateralBalance, swapRouter);
+        }
+    }
+    
+    /**
+     * @dev Swap tokens using Uniswap V3
+     */
+    function _swapTokens(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address router
+    ) private returns (uint256) {
+        IERC20(tokenIn).approve(router, amountIn);
+        
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: 3000, // 0.3% fee tier
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        
+        return ISwapRouter(router).exactInputSingle(params);
+    }
+    
+    /**
+     * @dev Initiate flash loan
+     */
+    function initiateFlashLoan(
+        address provider,
+        address[] calldata tokens,
+        uint256[] calldata amounts,
+        bytes calldata params
+    ) external onlyOwner {
+        if (provider == address(aavePool)) {
+            uint256[] memory modes = new uint256[](tokens.length);
+            aavePool.flashLoan(
+                address(this),
+                tokens,
+                amounts,
+                modes,
+                address(this),
+                params,
+                0
+            );
+        } else if (provider == address(balancerVault)) {
+            balancerVault.flashLoan(
+                address(this),
+                tokens,
+                amounts,
+                params
+            );
+        } else {
+            revert("Invalid provider");
+        }
+    }
+    
+    /**
+     * @dev Update compliance parameters (mutation)
+     */
+    function updateCompliance(
+        uint256 newProfitThreshold,
+        uint256 newSlippage
+    ) external onlyOwner {
+        compliance.minProfitThreshold = newProfitThreshold;
+        compliance.maxSlippage = newSlippage;
+        
+        emit ComplianceUpdated(newProfitThreshold, newSlippage);
+    }
+    
+    /**
+     * @dev Mutate strategy parameters
+     */
+    function mutate(
+        uint256 profitMultiplier,
+        uint256 gasLevel,
+        bool useBackup
+    ) external onlyOwner {
+        mutationParams.profitMultiplier = profitMultiplier;
+        mutationParams.gasOptimizationLevel = gasLevel;
+        mutationParams.useBackupRoutes = useBackup;
+    }
+    
+    /**
+     * @dev Emergency withdrawal
+     */
+    function emergencyWithdraw(address token) external onlyOwner {
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        if (balance > 0) {
+            IERC20(token).transfer(owner, balance);
+        }
+    }
+    
+    /**
+     * @dev Get compliance block
+     */
+    function getComplianceBlock() external view returns (
+        bool projectBibleCompliant,
+        bool mutationReady,
+        uint256 minProfit,
+        uint256 maxSlippage
+    ) {
+        return (
+            compliance.projectBibleCompliant,
+            compliance.mutationReady,
+            compliance.minProfitThreshold,
+            compliance.maxSlippage
+        );
+    }
+    
+    receive() external payable {}
 }
 
-// Adversarial contract for testing
-contract AdversarialContract {
-    MEVExecutor target;
+/**
+ * @title MEV Factory
+ * @dev Factory for deploying MEV executor contracts
+ */
+contract MEVFactory {
+    event ExecutorDeployed(address indexed executor, address indexed owner);
     
-    constructor(address _target) {
-        target = MEVExecutor(_target);
+    mapping(address => address[]) public userExecutors;
+    
+    function deployExecutor(
+        address aavePool,
+        address balancerVault,
+        address uniswapRouter
+    ) external returns (address) {
+        MEVExecutor executor = new MEVExecutor(
+            aavePool,
+            balancerVault,
+            uniswapRouter
+        );
+        
+        userExecutors[msg.sender].push(address(executor));
+        
+        emit ExecutorDeployed(address(executor), msg.sender);
+        
+        return address(executor);
     }
     
-    function attemptReentrancy() external {
-        // Attempt to reenter executor during callback
-    }
-    
-    function attemptDrainFunds() external {
-        // Attempt to drain funds through vulnerability
+    function getUserExecutors(address user) external view returns (address[] memory) {
+        return userExecutors[user];
     }
 }

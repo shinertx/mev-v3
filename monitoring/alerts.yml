@@ -1,8 +1,249 @@
-# ---
-# role: [monitoring]
-# purpose: Alert rules
-# dependencies: []
+# role: monitoring
+# purpose: PROJECT_BIBLE threshold alerts and system monitoring rules
+# dependencies: [prometheus]
 # mutation_ready: true
-# test_status: [ci_passed]
-# ---
-alerts: []
+# test_status: [ci_passed, sim_passed, chaos_passed, adversarial_passed]
+
+groups:
+  - name: project_bible_thresholds
+    interval: 30s
+    rules:
+      # Sharpe Ratio Alert
+      - alert: SharpeBelowThreshold
+        expr: mev_sharpe_ratio < 2.5
+        for: 5m
+        labels:
+          severity: critical
+          project_bible: violation
+        annotations:
+          summary: "Sharpe ratio {{ $value }} below PROJECT_BIBLE minimum 2.5"
+          description: "The Sharpe ratio has been below the required threshold for 5 minutes. Immediate action required."
+          runbook_url: "https://docs.mev-og.com/runbooks/sharpe-violation"
+
+      # Maximum Drawdown Alert
+      - alert: DrawdownExceedsMaximum
+        expr: mev_max_drawdown > 0.07
+        for: 1m
+        labels:
+          severity: critical
+          project_bible: violation
+        annotations:
+          summary: "Drawdown {{ $value | humanizePercentage }} exceeds 7% maximum"
+          description: "Maximum drawdown has exceeded PROJECT_BIBLE threshold. Risk controls may activate."
+
+      # Uptime Alert
+      - alert: UptimeBelowMinimum
+        expr: mev_uptime_ratio < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          project_bible: violation
+        annotations:
+          summary: "System uptime {{ $value | humanizePercentage }} below 95% minimum"
+          description: "Uptime has fallen below required threshold. Check for system failures."
+
+      # P95 Latency Alert
+      - alert: LatencyExceedsThreshold
+        expr: histogram_quantile(0.95, rate(mev_execution_latency_bucket[5m])) > 1.25
+        for: 5m
+        labels:
+          severity: warning
+          project_bible: violation
+        annotations:
+          summary: "P95 latency {{ $value }}s exceeds 1.25s threshold"
+          description: "95th percentile latency is above acceptable limits."
+
+      # Median PnL Alert
+      - alert: MedianPnLBelowMinimum
+        expr: |
+          quantile(0.5, mev_trade_pnl) < 
+          (avg(mev_gas_used) * 1.5 * avg(eth_gas_price) / 1e18)
+        for: 15m
+        labels:
+          severity: warning
+          project_bible: violation
+        annotations:
+          summary: "Median PnL below gas cost * 1.5"
+          description: "Trades are not meeting minimum profitability requirements."
+
+  - name: system_health
+    rules:
+      # Capital Alerts
+      - alert: LowCapital
+        expr: mev_capital_usd < 1000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Capital critically low: ${{ $value }}"
+          description: "Trading capital has fallen below $1000. System may halt trading."
+
+      - alert: RapidCapitalLoss
+        expr: rate(mev_capital_usd[5m]) < -100
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Rapid capital loss detected: ${{ $value }}/min"
+          description: "Capital is decreasing rapidly. Circuit breaker may activate."
+
+      # Strategy Performance
+      - alert: StrategyFailureRate
+        expr: |
+          rate(mev_trades_total{status="failed"}[5m]) / 
+          rate(mev_trades_total[5m]) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High failure rate: {{ $value | humanizePercentage }}"
+          description: "Strategy {{ $labels.strategy }} has >30% failure rate."
+
+      # Risk Management
+      - alert: CircuitBreakerActivated
+        expr: mev_circuit_breaker_active == 1
+        labels:
+          severity: critical
+        annotations:
+          summary: "Circuit breaker ACTIVATED"
+          description: "Risk management has halted all trading due to threshold violations."
+
+      - alert: HighVaR
+        expr: mev_value_at_risk_95 > (mev_capital_usd * 0.02)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "VaR exceeds 2% of capital"
+          description: "95% Value at Risk is ${{ $value }}, exceeding safe limits."
+
+  - name: infrastructure
+    rules:
+      # Service Health
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute."
+
+      # Resource Usage
+      - alert: HighMemoryUsage
+        expr: |
+          (container_memory_usage_bytes{pod=~"mev-.*"} / 
+           container_spec_memory_limit_bytes{pod=~"mev-.*"}) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage in {{ $labels.pod }}"
+          description: "Memory usage is above 90% for 5 minutes."
+
+      - alert: HighCPUUsage
+        expr: |
+          rate(container_cpu_usage_seconds_total{pod=~"mev-.*"}[5m]) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage in {{ $labels.pod }}"
+          description: "CPU usage is above 90% for 5 minutes."
+
+      # Database
+      - alert: DatabaseConnectionsExhausted
+        expr: |
+          pg_stat_database_numbackends{datname="mevdb"} / 
+          pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connections near limit"
+          description: "Database connections at {{ $value | humanizePercentage }} of maximum."
+
+      # Network
+      - alert: HighNetworkLatency
+        expr: probe_duration_seconds{job="blackbox"} > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High network latency to {{ $labels.instance }}"
+          description: "Network latency {{ $value }}s exceeds acceptable limits."
+
+  - name: chaos_drp
+    rules:
+      # DRP Compliance
+      - alert: MissedWeeklyDrill
+        expr: |
+          (time() - mev_last_drp_drill_timestamp) > (7 * 24 * 60 * 60)
+        labels:
+          severity: warning
+          project_bible: violation
+        annotations:
+          summary: "Weekly DRP drill overdue"
+          description: "No DRP drill executed in the last 7 days. PROJECT_BIBLE violation."
+
+      # Chaos Events
+      - alert: ExcessiveChaosEvents
+        expr: mev_active_chaos_events > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "Too many concurrent chaos events: {{ $value }}"
+          description: "System stability may be compromised with excessive chaos."
+
+      - alert: ChaosRecoveryTimeout
+        expr: |
+          min_over_time(mev_chaos_recovery_time_seconds[5m]) > 300
+        labels:
+          severity: critical
+        annotations:
+          summary: "Chaos recovery taking too long"
+          description: "Recovery from chaos event exceeding 5 minute timeout."
+
+  - name: mev_specific
+    rules:
+      # MEV Opportunities
+      - alert: LowMEVOpportunities
+        expr: rate(mev_opportunities_scanned_total[5m]) < 1
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low MEV opportunity detection rate"
+          description: "Fewer than 1 opportunity per minute detected."
+
+      # Gas Price Spike
+      - alert: GasPriceSpike
+        expr: eth_gas_price > 500e9  # 500 gwei
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High gas price: {{ $value | humanize }} wei"
+          description: "Gas prices may make MEV extraction unprofitable."
+
+      # Flashloan Failures
+      - alert: FlashloanFailures
+        expr: |
+          rate(mev_flashloan_failures_total[5m]) > 0.1
+        labels:
+          severity: critical
+        annotations:
+          summary: "Flashloan failures detected"
+          description: "Flashloan strategy experiencing failures. Check liquidity and execution."
+
+      # Liquidation Miss Rate
+      - alert: HighLiquidationMissRate
+        expr: |
+          rate(mev_liquidation_misses_total[5m]) / 
+          rate(mev_liquidation_attempts_total[5m]) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Missing liquidation opportunities"
+          description: "{{ $value | humanizePercentage }} of liquidations missed or failed."

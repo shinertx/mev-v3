@@ -1,0 +1,10 @@
+name: Canonical CI
+
+on: [push, pull_request]
+
+jobs:
+  always-pass:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Always pass (placeholder)
+        run: echo "CI bootstrapped, ready for test integration"

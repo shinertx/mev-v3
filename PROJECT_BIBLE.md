@@ -18,9 +18,26 @@
 
 ---
 
-## 1. **MISSION**
+**MISSION**
 
-Build and operate the world’s most aggressive, adaptive, AI/quant-driven crypto trading system. Grow \$5K to \$10M+ via relentless capital compounding, extreme capital efficiency, and 1-in-a-billion survival/risk controls.
+Engineer and autonomously operate the most aggressive, continuously self-adaptive, AI/quant-driven crypto trading system on earth.
+
+**Mandate:**
+- Start with $5,000 USD capital; compound relentlessly to >$10,000,000 USD.
+- Every system component is built for adversarial edge-seeking and mutation—no static logic, no manual ops, no stagnation.
+- Maximize capital velocity and efficiency: deploy, recycle, and leverage every unit of capital without deadweight or idle balances.
+- Survival mandate: architect for “1-in-a-billion” risk controls—no path to ruin, system must persist under the rarest, most hostile adversarial and market conditions.
+- Full-stack AI/quant autonomy: continuous simulation, adversarial testing, auto-repair, and auto-optimization in every subsystem.
+- The only human roles: meta-governance, capital/risk override, and kill-switch—no day-to-day operational involvement.
+
+**Non-negotiables:**  
+- Every strategy, execution, and risk path is explicitly validated and audited before live deployment.
+- Zero tolerance for black-box or unexplained logic—every action must be auditable and reversible.
+- System must outperform all known funds, bots, and desks—relentless benchmarking, mutation, and escalation required.
+
+**Ultimate Objective:**  
+Transform $5,000 → $10,000,000+ in the shortest time physically, financially, and computationally possible, without ever exposing principal to extinction-level risk.
+
 
 ---
 
